@@ -1,30 +1,47 @@
-from __future__ import print_function
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-if (len(sys.argv) == 1):
-    print ("Usage: cdf.py [file-name] [xlim-low] [xlim-high]")
-    sys.exit(0)
+def main():
+    parser = build_arg_parser()
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
+    args = parser.parse_args()
 
-filename = sys.argv[1]
-col = 0
+    data = np.loadtxt(fname=args.fname, delimiter=args.delim, usecols=(args.col,))
+    bin_edges, cdf = plot(data)
+    decorate_plot(bin_edges, cdf, args)
+    plt.show()
 
-data = np.loadtxt(fname=filename, usecols=(col,))
+def build_arg_parser():
+    parser = argparse.ArgumentParser(description='plot CDF')
+    parser.add_argument('--fname', type=str)
+    parser.add_argument('--delim', type=str, default=None)
+    parser.add_argument('--col', type=int, default=0)
+    parser.add_argument('--title', type=str, default=None)
+    parser.add_argument('--xlabel', type=str, default=None)
+    return parser
 
-counts, bin_edges = np.histogram(data, bins=50, normed=True)
-cdf = np.cumsum(counts)
-cdf /= cdf[-1]
+def plot(data):
+    counts, bin_edges = np.histogram(data, bins=50, normed=True)
+    cdf = np.cumsum(counts)
+    cdf /= cdf[-1]
+    return bin_edges, cdf
 
-title = input("Title: ")
-x_label = input("x-axis label: ")
-y_label = "F(x)"
+def decorate_plot(bin_edges, cdf, args):
+    title = args.title or input("Title: ")
+    x_label = args.xlabel or input("x-axis label: ")
+    y_label = "F(x)"
 
-xlow =np.min(bin_edges[1:]) 
-xhi = np.max(bin_edges[1:])
+    xlow = np.min(bin_edges[1:])
+    xhi = np.max(bin_edges[1:])
 
-plt.title(title)
-plt.xlabel(x_label)
-plt.ylabel(y_label)
-plt.plot(bin_edges[1:], cdf)
-plt.show()
+    plt.title(title)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.plot(bin_edges[1:], cdf)
+
+if __name__ == '__main__':
+    main()
