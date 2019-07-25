@@ -11,24 +11,29 @@ def main():
         parser.print_help()
         sys.exit(0)
     args = parser.parse_args()
-    
+
     x_data, y_data = load(args)
-    plot_data(x_data, y_data, scatter=not args.no_scatter) 
+    plot_data(x_data, y_data, args)
     decorate_plot(x_data, y_data)
+    plt.show()
 
 def build_arg_parser():
     parser = argparse.ArgumentParser(description='plot some dataz')
     parser.add_argument('--fname', type=str)
     parser.add_argument('--no-scatter', action='store_true', default=False)
+    parser.add_argument('--no-line', action='store_true', default=False)
     parser.add_argument('--delim', type=str, default=None)
     parser.add_argument('--x-col', type=int, default=0)
     parser.add_argument('--y-col', type=int, default=1)
     return parser
 
-def plot_data(x_data, y_data, scatter=True):
+def plot_data(x_data, y_data, args):
+    scatter = not args.no_scatter
+    line = not args.no_line
     if scatter:
-        plt.scatter(x_data, y_data)
-    plt.plot(x_data, y_data)
+        plt.scatter(x_data, y_data, marker='.')
+    if line:
+        plt.plot(x_data, y_data, linewidth=0.5)
 
 def load(args):
     x_data = np.loadtxt(fname=args.fname, delimiter=args.delim, usecols=((args.x_col,)))
@@ -54,7 +59,6 @@ def decorate_plot(x_data, y_data):
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.xlim(x_min, x_max)
-    plt.show()
 
 if __name__ == '__main__':
     main()
