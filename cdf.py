@@ -3,26 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-def main():
-    parser = build_arg_parser()
-    if len(sys.argv) == 1:
-        parser.print_help()
-        sys.exit(0)
-    args = parser.parse_args()
-
+def main(args):
     data = np.loadtxt(fname=args.fname, delimiter=args.delim, usecols=(args.col,))
     bin_edges, cdf = plot(data)
     decorate_plot(bin_edges, cdf, args)
     plt.show()
-
-def build_arg_parser():
-    parser = argparse.ArgumentParser(description='plot CDF')
-    parser.add_argument('--fname', type=str)
-    parser.add_argument('--delim', type=str, default=None)
-    parser.add_argument('--col', type=int, default=0)
-    parser.add_argument('--title', type=str, default=None)
-    parser.add_argument('--xlabel', type=str, default=None)
-    return parser
 
 def plot(data):
     counts, bin_edges = np.histogram(data, bins=50, normed=True)
@@ -43,5 +28,19 @@ def decorate_plot(bin_edges, cdf, args):
     plt.ylabel(y_label)
     plt.plot(bin_edges[1:], cdf)
 
+def build_arg_parser():
+    parser = argparse.ArgumentParser(description='plot CDF')
+    parser.add_argument('--fname', type=str)
+    parser.add_argument('--delim', type=str, default=None)
+    parser.add_argument('--col', type=int, default=0)
+    parser.add_argument('--title', type=str, default=None)
+    parser.add_argument('--xlabel', type=str, default=None)
+    return parser
+
 if __name__ == '__main__':
-    main()
+    parser = build_arg_parser()
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
+    args = parser.parse_args()
+    main(args)
