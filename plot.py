@@ -3,6 +3,7 @@ from scipy.optimize import curve_fit
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as plticker
 import sys
 
 def main(args):
@@ -22,6 +23,7 @@ def file_path_to_label(path):
 def plot_data(x_data, y_data, no_line, no_scatter, label):
     scatter = not args.no_scatter
     line = not no_line
+    # plt.xticks(x_data)
     if scatter:
         plt.scatter(x_data, y_data, marker='.')
     if line:
@@ -43,13 +45,16 @@ def decorate_plot(args):
     title = args.title or input("Title: ")
     x_label = args.xlabel or input("x-axis label: ")
     y_label = args.ylabel or input("y-axis label: ")
+
     plt.title(title)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.gca().legend()
-    #x_min = 0
-    #x_max = 1.1 * np.amax(x_data) # float(input("x-axis max: "))
-    #plt.xlim(x_min, x_max)
+
+    if args.x_max:
+        plt.xlim(None, args.x_max)
+    if args.y_max:
+        plt.ylim(None, args.y_max)
 
 class Parser(object):
 
@@ -61,6 +66,8 @@ class Parser(object):
         self.parser.add_argument('--delim', type=str, default=',')
         self.parser.add_argument('--x-col', type=int, default=0)
         self.parser.add_argument('--y-col', type=int, default=1)
+        self.parser.add_argument('--x-max', type=int, default=None)
+        self.parser.add_argument('--y-max', type=int, default=None)
         self.parser.add_argument('--group-col', type=int, default=None)
         self.parser.add_argument('--xlabel', type=str, default=None)
         self.parser.add_argument('--ylabel', type=str, default=None)
