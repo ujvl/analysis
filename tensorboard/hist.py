@@ -29,7 +29,7 @@ def main(args):
     
 
 def build_arg_parser():
-    parser = argparse.ArgumentParser(description='plot CDF')
+    parser = argparse.ArgumentParser(description='hist')
     parser.add_argument('--path-prefix', type=str)
     return parser
 
