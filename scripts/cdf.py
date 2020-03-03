@@ -31,10 +31,10 @@ def decorate_plot(bin_edges, cdf, args):
 def build_arg_parser():
     parser = argparse.ArgumentParser(description='plot CDF')
     parser.add_argument('--fname', type=str)
-    parser.add_argument('--delim', type=str, default=None)
+    parser.add_argument('--delim', type=str)
     parser.add_argument('--col', type=int, default=0)
-    parser.add_argument('--title', type=str, default=None)
-    parser.add_argument('--xlabel', type=str, default=None)
+    parser.add_argument('--title', type=str)
+    parser.add_argument('--xlabel', type=str)
     return parser
 
 if __name__ == '__main__':

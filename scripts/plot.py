@@ -20,7 +20,12 @@ def main(args):
 
 
 def plotter_cls(name):
-    plotters = {"scatter": ScatterPlot, "box": BoxPlot}
+    plotters = {
+        "scatter": ScatterPlot,
+        "line": ScatterPlot,
+        "reg": RegressionPlot,
+        "box": BoxPlot,
+    }
     return plotters[name]
 
 
@@ -47,13 +52,44 @@ class ScatterPlot:
     """Scatter plot"""
 
     def plot(self, data, args):
-        if all(col is None for col in [args.x_col, args.y_col, args.label_col]):
+        if all(col is None for col in [args.x_col, args.y_col, args.x_col]):
             cols = data.columns
-            args.x_col, args.y_col, args.label_col = cols[0], cols[1], cols[2]
-            logger.info("Using x=%s, y=%s, label=%s by default.", args.x_col, args.y_col, args.label_col)
+            args.x_col, args.y_col, args.z_col = cols[0], cols[1], cols[2]
+            logger.info("Using x=%s, y=%s, z=%s by default.", args.x_col, args.y_col, args.z_col)
+
+        # Workaround since hue uses duck-typing for numerics.
+        data[args.z_col] = data[args.z_col].astype(str)
+        data[args.z_col] = "$" + data[args.z_col] + "$"
 
         sns.set()
-        sns.relplot(x=args.x_col, y=args.y_col, hue=args.label_col, kind="line", data=data)
+        plot = sns.relplot(
+            x=args.x_col,
+            y=args.y_col,
+            hue=args.z_col,
+            kind=args.plt,
+            data=data,
+        )
+        if args.x_log:
+            plot.set(xscale="log")
+        if args.y_log:
+            plot.set(yscale="log")
+
+
+class RegressionPlot:
+    """Scatter plot with fitted function"""
+
+    def plot(self, data, args):
+        if all(col is None for col in [args.x_col, args.y_col, args.x_col]):
+            cols = data.columns
+            args.x_col, args.y_col, args.z_col = cols[0], cols[1], cols[2]
+            logger.info("Using x=%s, y=%s, z=%s by default.", args.x_col, args.y_col, args.z_col)
+
+        sns.set()
+        plot = sns.lmplot(x=args.x_col, y=args.y_col, hue=args.z_col, data=data)
+        if args.x_log:
+            plot.set(xscale="log")
+        if args.y_log:
+            plot.set(yscale="log")
 
 
 class BoxPlot:
@@ -74,7 +110,10 @@ class BoxPlot:
 
         sns.set()
         boxplt = sns.boxplot(x=args.x_col, y=args.y_col, data=data, palette="Blues", width=0.35);
-        boxplt.set_yscale("log")
+        if args.x_log:
+            boxplt.set_xscale("log")
+        if args.y_log:
+            boxplt.set_yscale("log")
 
     def p(self, n):
         def p_(x):
@@ -87,14 +126,16 @@ def parse():
     parser = argparse.ArgumentParser(description='plot some dataz')
     # Data processing
     parser.add_argument('--fname', type=str, required=True)
-    parser.add_argument('--plt', type=str, choices=["scatter", "box"], default="scatter")
+    parser.add_argument('--plt', type=str, choices=["scatter", "line", "reg", "box"], default="scatter")
     parser.add_argument('--x-col', type=str)
     parser.add_argument('--y-col', type=str)
-    parser.add_argument('--label-col', type=str)
+    parser.add_argument('--z-col', type=str)
     parser.add_argument('--delim', type=str, default=',')
     # Decorate plot.
     parser.add_argument('--x-max', type=int)
     parser.add_argument('--y-max', type=int)
+    parser.add_argument('--x-log', action="store_true")
+    parser.add_argument('--y-log', action="store_true")
     parser.add_argument('--xlabel', type=str)
     parser.add_argument('--ylabel', type=str)
     parser.add_argument('--title', type=str)
