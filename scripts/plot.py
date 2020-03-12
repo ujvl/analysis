@@ -47,6 +47,12 @@ def decorate_plot(args):
     if args.y_max:
         plt.ylim(None, args.y_max)
 
+    ax = plt.gca()
+    if args.x_log:
+        ax.set_xscale("symlog")
+    if args.y_log:
+        ax.set_yscale("symlog")
+
 
 class ScatterPlot:
     """Scatter plot"""
@@ -58,8 +64,9 @@ class ScatterPlot:
             logger.info("Using x=%s, y=%s, z=%s by default.", args.x_col, args.y_col, args.z_col)
 
         # Workaround since hue uses duck-typing for numerics.
-        data[args.z_col] = data[args.z_col].astype(str)
-        data[args.z_col] = "$" + data[args.z_col] + "$"
+        if args.z_col:
+            data[args.z_col] = data[args.z_col].astype(str)
+            data[args.z_col] = "$" + data[args.z_col] + "$"
 
         sns.set()
         plot = sns.relplot(
@@ -69,10 +76,6 @@ class ScatterPlot:
             kind=args.plt,
             data=data,
         )
-        if args.x_log:
-            plot.set(xscale="log")
-        if args.y_log:
-            plot.set(yscale="log")
 
 
 class RegressionPlot:
@@ -86,10 +89,6 @@ class RegressionPlot:
 
         sns.set()
         plot = sns.lmplot(x=args.x_col, y=args.y_col, hue=args.z_col, data=data)
-        if args.x_log:
-            plot.set(xscale="log")
-        if args.y_log:
-            plot.set(yscale="log")
 
 
 class BoxPlot:
@@ -110,10 +109,6 @@ class BoxPlot:
 
         sns.set()
         boxplt = sns.boxplot(x=args.x_col, y=args.y_col, data=data, palette="Blues", width=0.35);
-        if args.x_log:
-            boxplt.set_xscale("log")
-        if args.y_log:
-            boxplt.set_yscale("log")
 
     def p(self, n):
         def p_(x):
