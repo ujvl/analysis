@@ -18,7 +18,7 @@ logger.setLevel("INFO")
 def main(args):
     logger.debug("Args: %s", args)
     processor = PROCESSORS[args.process]
-    data = processor(pd.read_csv(args.csv, sep=args.delim))
+    data = processor(pd.read_csv(args.csv, sep=args.delim), args)
     PLOTTERS[args.plt](data, args)
     decorate(args)
     logger.info("Showing plot...")
@@ -50,13 +50,18 @@ class DataProcessor:
     """Data processing namespace."""
 
     @staticmethod
-    def identity(data: DataFrame) -> DataFrame:
+    def identity(data: DataFrame, args) -> DataFrame:
         """Identity."""
         return data
 
 
 class Plot:
     """Data plotting namespace."""
+
+    @staticmethod
+    def line(data, args):
+        """Scatter plot"""
+        Plot.scatter(data, args)
 
     @staticmethod
     def scatter(data, args):
@@ -153,6 +158,7 @@ class Plot:
 
 
 def p(n):
+    """Gets nth percentile func"""
     def p_(x):
         return np.percentile(x, n)
 
@@ -165,6 +171,7 @@ PROCESSORS = dict(getmembers(DataProcessor, predicate=isfunction))
 
 
 def parse():
+    """Parse args."""
     parser = argparse.ArgumentParser(description="plot some dataz")
     # Data processing
     parser.add_argument("--csv", type=str, required=True)
@@ -193,6 +200,7 @@ def parse():
 
 
 def clean_and_validate(args):
+    """Clean args, validate."""
     err = None
     if args.plt != "cdf":
         if len(args.x) > 1:
