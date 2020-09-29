@@ -19,6 +19,8 @@ def main(args):
     logger.debug("Args: %s", args)
     processor = PROCESSORS[args.process]
     data = processor(pd.read_csv(args.csv, sep=args.delim), args)
+    if args.filter:
+        data = DataProcessor.filter(data, args)
     PLOTTERS[args.plt](data, args)
     decorate(args)
     logger.info("Showing plot...")
@@ -44,6 +46,11 @@ def decorate(args):
         plt.gca().set_xscale(args.x_scale)
     if args.y_scale:
         plt.gca().set_yscale(args.y_scale)
+
+
+def filter(data: DataFrame, args) -> DataFrame:
+    """Filter data via query string."""
+    return data.query(args.filter)
 
 
 class DataProcessor:
@@ -109,14 +116,18 @@ class Plot:
             args.x, args.y = cols[0], cols[1]
             logger.info("Using x=%s, y=%s by default.", args.x, args.y)
 
-        data = data[[args.x, args.y]]
-        aggs = data.groupby(args.x).agg(
-            ["mean", "std", p(25), p(50), p(75), p(90), p(95), p(99)])
-        logger.info(aggs)
+        # data = data[[args.x, args.y]]
+        # aggs = data.groupby(args.x).agg(
+        #     ["mean", "std", p(25), p(50), p(75), p(90), p(95), p(99)])
 
         sns.set()
         sns.boxplot(
-            x=args.x, y=args.y, data=data, palette="Blues", width=0.35)
+            x=args.x,
+            y=args.y,
+            hue=args.z,
+            data=data,
+            palette="Blues",
+            width=0.35)
 
     @staticmethod
     def bar(data, args):
@@ -126,6 +137,7 @@ class Plot:
             args.x, args.y = cols[0], cols[1]
             logger.info("Using x=%s, y=%s by default.", args.x, args.y)
 
+        sns.set()
         sns.barplot(x=args.x, y=args.y, hue=args.z, data=data)
 
     @staticmethod
@@ -174,11 +186,12 @@ def parse():
     """Parse args."""
     parser = argparse.ArgumentParser(description="plot some dataz")
     # Data processing
-    parser.add_argument("--csv", type=str, required=True)
+    parser.add_argument("--csv", required=True)
     parser.add_argument(
         "--plt", choices=list(PLOTTERS.keys()), default="scatter")
     parser.add_argument(
         "--process", choices=list(PROCESSORS.keys()), default="identity")
+    parser.add_argument("--filter", help="filter query")
     parser.add_argument(
         "--x",
         nargs="+",
