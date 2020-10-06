@@ -20,14 +20,21 @@ def main(args):
     processor = PROCESSORS[args.process]
     data = processor(pd.read_csv(args.csv, sep=args.delim), args)
     if args.filter:
-        data = DataProcessor.filter(data, args)
+        data = filter(data, args)
+    plot(data, args)
+
+
+def plot(data, args):
+    """Plot data."""
     PLOTTERS[args.plt](data, args)
-    decorate(args)
+    style(args)
     logger.info("Showing plot...")
+    if args.out:
+        plt.savefig(args.out)
     plt.show()
 
 
-def decorate(args):
+def style(args):
     """Requests user input to add plot labels, title etc."""
     title = args.title or input("Title: ")
     x_label = args.xlabel or input("x-axis label: ") or args.x
@@ -47,6 +54,17 @@ def decorate(args):
     if args.y_scale:
         plt.gca().set_yscale(args.y_scale)
 
+    if isinstance(args.style, str):
+        STYLES[args.style]()
+    else:
+        args.style()
+    # if grid:
+        # print(grid.axes[0])
+        # grid.axes.set_title(args.title, fontsize=20)
+        # grid.set_xlabels(args.xlabel, fontsize=3)
+        # grid.set_ylabels(args.ylabel, fontsize=3)
+        # grid.tick_params(labelsize=5)
+
 
 def filter(data: DataFrame, args) -> DataFrame:
     """Filter data via query string."""
@@ -61,14 +79,62 @@ class DataProcessor:
         """Identity."""
         return data
 
+    @staticmethod
+    def join_z(data: DataFrame, args) -> DataFrame:
+        """Join --z columns."""
+        cols = args.z.split(",")
+        concat_col = " * ".join(cols)
+        args.z = concat_col
+
+        data[concat_col] = data[cols].apply(
+            lambda row: " * ".join(row.values.astype(str)), axis=1
+        )
+        return data
+
+    @staticmethod
+    def div(data: DataFrame, args) -> DataFrame:
+        """Divide."""
+        grouped = data.groupby([args.x, args.z])
+        agg = grouped.agg(
+            {args.y: lambda x: x.iloc[1] / x.iloc[0] if len(x) == 2 else None}
+        )[args.y].reset_index()
+        return agg
+
+    # @staticmethod
+    # def policy_name(data: DataFrame, args) -> DataFrame:
+    #     data["policy"] = data["policy"].map(
+    #         {"None": "elastic", "min": "fixed"}
+    #     )
+    #     return data
+
+
+class Style:
+
+    def none():
+        pass
+
+    def default():
+        sns.set()
+
+    def paper():
+        rc = {
+            "figure.figsize": (11.7, 8.27),
+            "font.size": 20,
+            "axes.titlesize": 20,
+            "legend.fontsize": 16,
+            # "legend.handlelength": 2,
+            "axes.labelsize": 20
+        }
+        sns.set(style="white", rc=rc)
+
 
 class Plot:
     """Data plotting namespace."""
 
     @staticmethod
     def line(data, args):
-        """Scatter plot"""
-        Plot.scatter(data, args)
+        """Line plot"""
+        return Plot.scatter(data, args)
 
     @staticmethod
     def scatter(data, args):
@@ -85,9 +151,7 @@ class Plot:
             data[args.z] = data[args.z].astype(str)
             data[args.z] = "$" + data[args.z] + "$"
 
-        sns.set()
-
-        sns.relplot(
+        return sns.relplot(
             x=args.x,
             y=args.y,
             hue=args.z,
@@ -104,9 +168,7 @@ class Plot:
             args.z = cols[2] if len(cols) > 2 else None
             logger.info("Using x=%s, y=%s, z=%s by default.", args.x,
                         args.y, args.z)
-
-        sns.set()
-        sns.lmplot(x=args.x, y=args.y, hue=args.z, data=data)
+        return sns.lmplot(x=args.x, y=args.y, hue=args.z, data=data)
 
     @staticmethod
     def box(data, args):
@@ -119,15 +181,14 @@ class Plot:
         # data = data[[args.x, args.y]]
         # aggs = data.groupby(args.x).agg(
         #     ["mean", "std", p(25), p(50), p(75), p(90), p(95), p(99)])
-
-        sns.set()
-        sns.boxplot(
+        return sns.boxplot(
             x=args.x,
             y=args.y,
             hue=args.z,
             data=data,
             palette="Blues",
-            width=0.35)
+            width=0.35,
+        )
 
     @staticmethod
     def bar(data, args):
@@ -137,8 +198,7 @@ class Plot:
             args.x, args.y = cols[0], cols[1]
             logger.info("Using x=%s, y=%s by default.", args.x, args.y)
 
-        sns.set()
-        sns.barplot(x=args.x, y=args.y, hue=args.z, data=data)
+        return sns.barplot(x=args.x, y=args.y, hue=args.z, data=data)
 
     @staticmethod
     def cdf(data, args):
@@ -155,8 +215,6 @@ class Plot:
 
         kwargs = {"cumulative": True}
         aggs = data.groupby(args.z)
-
-        sns.set()
         for agg in aggs:
             for x_col in args.x:
                 samples = agg[1][x_col]
@@ -167,6 +225,7 @@ class Plot:
                     kde_kws=kwargs,
                     bins=50,
                     label=f"{x_col} - {agg[0]}")
+        return None
 
 
 def p(n):
@@ -180,6 +239,7 @@ def p(n):
 
 PLOTTERS = dict(getmembers(Plot, predicate=isfunction))
 PROCESSORS = dict(getmembers(DataProcessor, predicate=isfunction))
+STYLES = dict(getmembers(Style, predicate=isfunction))
 
 
 def parse():
@@ -200,6 +260,11 @@ def parse():
     parser.add_argument("--z", help="z column name (used for legend)")
     parser.add_argument("--delim", default=",", help="input csv delimeter")
     # Decorate plot. Omitting some of these may trigger input request.
+    parser.add_argument(
+        "--style",
+        choices=list(STYLES.keys()),
+        default="paper",
+        help="style mode")
     parser.add_argument("--x-min", type=float, help="min on x-axis")
     parser.add_argument("--y-min", type=float, help="min on y-axis")
     parser.add_argument("--x-max", type=float, help="max on x-axis")
@@ -209,7 +274,17 @@ def parse():
     parser.add_argument("--xlabel", help="x-axis label; default = column name")
     parser.add_argument("--ylabel", help="y-axis label; default = column name")
     parser.add_argument("--title", help="title of plot")
+    parser.add_argument("--out", help="save to out file")
     return parser.parse_args()
+
+
+class Args:
+    def __init__(self, adict=None):
+        if adict:
+            self.__dict__.update(adict)
+
+    def __getattr__(self, name):
+        return None
 
 
 def clean_and_validate(args):
