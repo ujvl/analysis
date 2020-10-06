@@ -26,15 +26,15 @@ def main(args):
 
 def plot(data, args):
     """Plot data."""
-    PLOTTERS[args.plt](data, args)
-    style(args)
+    facet_grid = PLOTTERS[args.plt](data, args)
+    style(args, facet_grid)
     logger.info("Showing plot...")
     if args.out:
         plt.savefig(args.out)
     plt.show()
 
 
-def style(args):
+def style(args, facet_grid):
     """Requests user input to add plot labels, title etc."""
     title = args.title or input("Title: ")
     x_label = args.xlabel or input("x-axis label: ") or args.x
@@ -55,15 +55,11 @@ def style(args):
         plt.gca().set_yscale(args.y_scale)
 
     if isinstance(args.style, str):
-        STYLES[args.style]()
+        STYLES[args.style](facet_grid)
+    elif callable(args.style):
+        args.style(facet_grid)
     else:
-        args.style()
-    # if grid:
-        # print(grid.axes[0])
-        # grid.axes.set_title(args.title, fontsize=20)
-        # grid.set_xlabels(args.xlabel, fontsize=3)
-        # grid.set_ylabels(args.ylabel, fontsize=3)
-        # grid.tick_params(labelsize=5)
+        logger.warning("No styling applied.")
 
 
 def filter(data: DataFrame, args) -> DataFrame:
@@ -100,32 +96,32 @@ class DataProcessor:
         )[args.y].reset_index()
         return agg
 
-    # @staticmethod
-    # def policy_name(data: DataFrame, args) -> DataFrame:
-    #     data["policy"] = data["policy"].map(
-    #         {"None": "elastic", "min": "fixed"}
-    #     )
-    #     return data
-
 
 class Style:
 
-    def none():
+    def none(facet_grid):
         pass
 
-    def default():
+    def default(facet_grid):
         sns.set()
 
-    def paper():
+    def paper(facet_grid):
         rc = {
             "figure.figsize": (11.7, 8.27),
             "font.size": 20,
             "axes.titlesize": 20,
             "legend.fontsize": 16,
-            # "legend.handlelength": 2,
-            "axes.labelsize": 20
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "axes.labelsize": 19,
         }
         sns.set(style="white", rc=rc)
+
+
+class StyleUtil:
+
+    def legend_loc(grid, x, y):
+        grid._legend.set_bbox_to_anchor([x, y])
 
 
 class Plot:
