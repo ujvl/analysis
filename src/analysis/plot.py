@@ -16,11 +16,12 @@ logger.setLevel("INFO")
 
 
 def main(args):
+    """main"""
     logger.debug("Args: %s", args)
     processor = PROCESSORS[args.process]
     data = processor(pd.read_csv(args.csv, sep=args.delim), args)
     if args.filter:
-        data = filter(data, args)
+        data = filter_data(data, args)
     plot(data, args)
 
 
@@ -62,7 +63,7 @@ def style(args, facet_grid):
         logger.warning("No styling applied.")
 
 
-def filter(data: DataFrame, args) -> DataFrame:
+def filter_data(data: DataFrame, args) -> DataFrame:
     """Filter data via query string."""
     return data.query(args.filter)
 
@@ -98,29 +99,47 @@ class DataProcessor:
 
 
 class Style:
+    """Style plot."""
 
-    def none(facet_grid):
+    PAPER_RC = {
+        "font.size": 20,
+        "axes.titlesize": 20,
+        "legend.fontsize": 16,
+        "xtick.labelsize": 14,
+        "ytick.labelsize": 14,
+        "axes.labelsize": 19,
+        "axes.edgecolor": "0.15",
+        "axes.linewidth": 1.25,
+    }
+
+    @classmethod
+    def none(cls, facet_grid):
         pass
 
-    def default(facet_grid):
+    @classmethod
+    def default(cls, facet_grid):
         sns.set()
 
-    def paper(facet_grid):
-        rc = {
-            "figure.figsize": (11.7, 8.27),
-            "font.size": 20,
-            "axes.titlesize": 20,
-            "legend.fontsize": 16,
-            "xtick.labelsize": 14,
-            "ytick.labelsize": 14,
-            "axes.labelsize": 19,
-        }
-        sns.set(style="white", rc=rc)
+    @classmethod
+    def paper(cls, facet_grid):
+        logger.info("Setting paper style.")
+        # Enable borders.
+        if hasattr(facet_grid.axes, "flatten"):
+            for ax in facet_grid.axes.flatten():
+                for _, spine in ax.spines.items():
+                    spine.set_visible(True)
+                    spine.set_color("black")
+                    spine.set_linewidth(1)
+        else:
+            logger.info("Borders already enabled?")
+        sns.set(style="white", rc=cls.PAPER_RC)
 
 
 class StyleUtil:
 
+    @staticmethod
     def legend_loc(grid, x, y):
+        """Set location of legend."""
         grid._legend.set_bbox_to_anchor([x, y])
 
 
