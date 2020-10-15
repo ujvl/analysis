@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import argparse
-from inspect import getmembers, isfunction
+from inspect import getmembers, isfunction, ismethod
 import logging
 
 import matplotlib.pyplot as plt
@@ -17,7 +17,7 @@ logger.setLevel("INFO")
 
 def main(args):
     """main"""
-    logger.debug("Args: %s", args)
+    logger.debug(f"Args: {args}")
     processor = PROCESSORS[args.process]
     data = processor(pd.read_csv(args.csv, sep=args.delim), args)
     if args.filter:
@@ -37,11 +37,12 @@ def plot(data, args):
 
 def style(args, facet_grid):
     """Requests user input to add plot labels, title etc."""
-    title = args.title or input("Title: ")
+    if args.style != "paper":
+        title = args.title or input("Title: ")
+        plt.title(title)
+
     x_label = args.xlabel or input("x-axis label: ") or args.x
     y_label = args.ylabel or input("y-axis label: ") or args.y
-
-    plt.title(title)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
 
@@ -114,14 +115,17 @@ class Style:
 
     @classmethod
     def none(cls, facet_grid):
+        """No styling."""
         pass
 
     @classmethod
     def default(cls, facet_grid):
+        """Default seaborn styling."""
         sns.set()
 
     @classmethod
     def paper(cls, facet_grid):
+        """Publication styling (big text)."""
         logger.info("Setting paper style.")
         # Enable borders.
         if hasattr(facet_grid.axes, "flatten"):
@@ -133,6 +137,7 @@ class Style:
         else:
             logger.info("Borders already enabled?")
         sns.set(style="white", rc=cls.PAPER_RC)
+        plt.tight_layout()
 
 
 class StyleUtil:
@@ -141,6 +146,12 @@ class StyleUtil:
     def legend_loc(grid, x, y):
         """Set location of legend."""
         grid._legend.set_bbox_to_anchor([x, y])
+
+    @staticmethod
+    def invert_axis(grid):
+        pass
+        # grid.fig.axes[0].invert_xaxis()
+        # grid.invert_xaxis()
 
 
 class Plot:
@@ -240,7 +251,6 @@ class Plot:
                     kde_kws=kwargs,
                     bins=50,
                     label=f"{x_col} - {agg[0]}")
-        return None
 
 
 def p(n):
@@ -254,7 +264,7 @@ def p(n):
 
 PLOTTERS = dict(getmembers(Plot, predicate=isfunction))
 PROCESSORS = dict(getmembers(DataProcessor, predicate=isfunction))
-STYLES = dict(getmembers(Style, predicate=isfunction))
+STYLES = dict(getmembers(Style, predicate=ismethod))
 
 
 def parse():
