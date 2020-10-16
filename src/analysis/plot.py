@@ -25,8 +25,27 @@ def main(args):
     plot(data, args)
 
 
-def plot(data, args):
-    """Plot data."""
+class Args:
+    def __init__(self, adict: dict = None):
+        if adict:
+            self.__dict__.update(adict)
+
+    def __getattr__(self, name):
+        return None
+
+
+def plot(data, plot_args=None, **plot_kwargs):
+    """Plot data.
+
+    Args:
+        plot_args: This is just the Namespace or Args object.
+        plot_kwargs: Instead of passing in plot_args, the individual
+            arguments can be passed in by keyword (see `parse`).
+    """
+    args = plot_args or Args(plot_kwargs)
+    if plot_args and plot_kwargs:
+        raise ValueError("Plot args/kwargs are mutually exclusive.")
+
     facet_grid = PLOTTERS[args.plt](data, args)
     style(args, facet_grid)
     logger.info("Showing plot...")
@@ -115,7 +134,6 @@ class Style:
 
     @classmethod
     def none(cls, facet_grid):
-        """No styling."""
         pass
 
     @classmethod
@@ -165,13 +183,8 @@ class Plot:
     @staticmethod
     def scatter(data, args):
         """Scatter plot"""
-        if all(col is None for col in [args.x, args.y, args.z]):
-            cols = data.columns
-            args.x, args.y = cols[0], cols[1]
-            args.z = cols[2] if len(cols) > 2 else None
-            logger.info("Using x=%s, y=%s, z=%s by default.", args.x,
-                        args.y, args.z)
-
+        args.x, args.y, args.z = Plot._cols(
+            data.columns, args.x, args.y, args.z)
         # Workaround since hue uses duck-typing for numerics.
         if args.z and data.dtypes[args.z] == int:
             data[args.z] = data[args.z].astype(str)
@@ -188,22 +201,20 @@ class Plot:
     @staticmethod
     def reg(data, args):
         """Scatter plot with fitted function"""
-        if all(col is None for col in [args.x, args.y]):
-            cols = data.columns
-            args.x, args.y = cols[0], cols[1]
-            args.z = cols[2] if len(cols) > 2 else None
-            logger.info("Using x=%s, y=%s, z=%s by default.", args.x,
-                        args.y, args.z)
+        args.x, args.y, args.z = Plot._cols(
+            data.columns, args.x, args.y, args.z)
         return sns.lmplot(x=args.x, y=args.y, hue=args.z, data=data)
+
+    @staticmethod
+    def bar(data, args):
+        """Bar plot"""
+        args.x, args.y = Plot._cols(data.columns, args.x, args.y)
+        return sns.barplot(x=args.x, y=args.y, hue=args.z, data=data)
 
     @staticmethod
     def box(data, args):
         """Box plot"""
-        if all(col is None for col in [args.x, args.y]):
-            cols = data.columns
-            args.x, args.y = cols[0], cols[1]
-            logger.info("Using x=%s, y=%s by default.", args.x, args.y)
-
+        args.x, args.y = Plot._cols(data.columns, args.x, args.y)
         # data = data[[args.x, args.y]]
         # aggs = data.groupby(args.x).agg(
         #     ["mean", "std", p(25), p(50), p(75), p(90), p(95), p(99)])
@@ -217,40 +228,54 @@ class Plot:
         )
 
     @staticmethod
-    def bar(data, args):
-        """Bar plot"""
-        if all(col is None for col in [args.x, args.y]):
-            cols = data.columns
-            args.x, args.y = cols[0], cols[1]
-            logger.info("Using x=%s, y=%s by default.", args.x, args.y)
-
-        return sns.barplot(x=args.x, y=args.y, hue=args.z, data=data)
+    def cdf(data, args):
+        """CDF plot. Dist plot type is implicit (args.plt)."""
+        return Plot._dist(data, args)
 
     @staticmethod
-    def cdf(data, args):
-        """CDF plot"""
-        if all(col is None for col in [args.x, args.z]):
-            cols = data.columns
-            args.x, args.z = [cols[0]], cols[1]
-            logger.info("Using x=%s, z=%s by default.", args.x, args.z)
+    def pdf(data, args):
+        """PDF plot. Dist plot type is implicit (args.plt)."""
+        return Plot._dist(data, args)
 
+    @staticmethod
+    def _dist(data, args):
+        """Distribution plot"""
+        args.x, args.z = Plot._cols(data.columns, args.x, args.z)
         # Workaround since hue uses duck-typing for numerics.
         if args.z and data.dtypes[args.z] == int:
             data[args.z] = data[args.z].astype(str)
             data[args.z] = "$" + data[args.z] + "$"
 
-        kwargs = {"cumulative": True}
-        aggs = data.groupby(args.z)
+        if args.z:
+            aggs = data.groupby(args.z)
+        else:
+            aggs = [(args.x, {args.x: data[args.x]})]
+
         for agg in aggs:
-            for x_col in args.x:
-                samples = agg[1][x_col]
-                sns.distplot(
-                    samples,
-                    hist=False,
-                    hist_kws=kwargs,
-                    kde_kws=kwargs,
-                    bins=50,
-                    label=f"{x_col} - {agg[0]}")
+            logger.info(
+                "Stats: %s",
+                ",".join(percentiles(25, 50, 75, 90, 95, 99)))
+            sns.distplot(
+                agg[1][args.x],
+                hist=False,
+                hist_kws={"cumulative": args.plt == "cdf"},
+                kde_kws={"cumulative": args.plt == "cdf"},
+                bins=50,
+                label=f"{args.x} - {agg[0]}")
+
+    @staticmethod
+    def _cols(all_cols: list, *cols):
+        if all(col is None for col in cols):
+            default_cols = tuple(all_cols[:len(cols)])
+            pad = len(cols) - len(default_cols)
+            default_cols += tuple(None for _ in range(pad))
+            logger.warning("Using {default_cols} by default.")
+            return default_cols
+        return tuple(cols)
+
+
+def percentiles(x, *n):
+    return [np.percentile(x, _n) for _n in n]
 
 
 def p(n):
@@ -277,10 +302,7 @@ def parse():
     parser.add_argument(
         "--process", choices=list(PROCESSORS.keys()), default="identity")
     parser.add_argument("--filter", help="filter query")
-    parser.add_argument(
-        "--x",
-        nargs="+",
-        help="x column name; note: this may only be a list for CDF")
+    parser.add_argument("--x", help="x column name")
     parser.add_argument("--y", nargs="+", help="y column name")
     parser.add_argument("--z", help="z column name (used for legend)")
     parser.add_argument("--delim", default=",", help="input csv delimeter")
@@ -303,25 +325,10 @@ def parse():
     return parser.parse_args()
 
 
-class Args:
-    def __init__(self, adict=None):
-        if adict:
-            self.__dict__.update(adict)
-
-    def __getattr__(self, name):
-        return None
-
-
 def clean_and_validate(args):
     """Clean args, validate."""
     err = None
-    if args.plt != "cdf":
-        if len(args.x) > 1:
-            err = f"--x-col must be len 1 for {args.plt}"
-        else:
-            # set as str since other plotters don't expect list
-            args.x = args.x[0]
-    elif args.plt == "cdf" and args.y:
+    if args.plt == "cdf" and args.y:
         err = f"--y-col must not be set for {args.plt}"
 
     args.y = args.y[0] if args.y else None
